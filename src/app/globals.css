@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Odoo Dashboards design tokens, ported from
+ * odoo_dashboards_saas/static/src/styles/_tokens.css (REDESIGN.md Part 2).
+ * Scoped to `.o_dsaas` (applied on <html> in src/app/layout.tsx), never
+ * `:root` -- keeps parity with the Odoo addon's own rule so this theme can
+ * never leak if this app is ever iframed into Odoo's backend chrome.
+ * No dark values, no `prefers-color-scheme` block: no-dark-mode is a
+ * resolved decision (REDESIGN.md Part 9 #1), carried into this app as-is. */
+.o_dsaas {
+  /* Primary -- indigo, hue 244 */
+  --primary-50: hsl(244 100% 97%);
+  --primary-100: hsl(244 100% 90%);
+  --primary-300: hsl(244 90% 78%);
+  --primary-500: hsl(244 100% 51%);
+  --primary-700: hsl(244 100% 41%);
+  --primary-900: hsl(244 90% 22%);
+
+  /* Accent -- amber. AI touchpoints only, never a status color. */
+  --accent-50: #fffbeb;
+  --accent-300: #fcd34d;
+  --accent-500: #f59e0b;
+  --accent-700: #b45309;
+
+  /* Neutrals -- cool gray, hue 220 */
+  --background: hsl(220 20% 98%);
+  --surface: #fff;
+  --muted: hsl(220 14% 96%);
+  --border: hsl(220 13% 91%);
+  --border-input: hsl(220 13% 88%);
+  --foreground: hsl(220 9% 12%);
+  --fg-muted: hsl(220 9% 42%);
+  --fg-subtle: hsl(220 9% 58%);
+
+  /* Semantic -- status only, never decoration */
+  --info: hsl(217 91% 55%);
+  --success: hsl(152 60% 32%);
+  --warning: hsl(43 74% 50%);
+  --danger: hsl(0 84% 60%);
+
+  /* Chart palette -- data viz only, never status */
+  --chart-1: hsl(217 91% 60%);
+  --chart-2: hsl(173 58% 39%);
+  --chart-3: hsl(224 64% 33%);
+  --chart-4: hsl(43 74% 66%);
+  --chart-5: hsl(27 87% 67%);
+
+  /* Sticky note -- decorative only, must never alias to --warning-* */
+  --note-surface: hsl(45 90% 94%);
+  --note-border: hsl(45 60% 82%);
+
+  /* Typography -- variables set by next/font in layout.tsx */
+  --font-heading: var(--font-schibsted-grotesk), "Schibsted Grotesk", sans-serif;
+  --font-body: var(--font-instrument-sans), "Instrument Sans", sans-serif;
+  --font-mono: ui-monospace, Menlo, monospace;
+
+  /* Spacing -- 8px rhythm, 4px half-step */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+
+  /* Radius -- by component class, not by taste */
+  --radius-sm: 4px; /* tags, lozenges, checkboxes */
+  --radius-md: 6px; /* inputs, buttons, list rows */
+  --radius-lg: 8px; /* cards, panels */
+  --radius-xl: 12px; /* modals */
+  --radius-full: 999px; /* pills, avatars, toggles */
+
+  /* Elevation -- four planes */
+  --shadow-raised: 0 1px 2px rgba(20, 20, 43, 0.06), 0 1px 1px rgba(20, 20, 43, 0.08);
+  --shadow-overlay: 0 8px 24px rgba(20, 20, 43, 0.14), 0 2px 6px rgba(20, 20, 43, 0.08);
+  --shadow-modal: 0 20px 60px rgba(20, 20, 43, 0.25);
+  --modal-backdrop: rgba(20, 20, 43, 0.45);
+
+  /* Focus ring -- replaces the border, never stacks on it */
+  --focus-ring: 0 0 0 3px hsl(244 100% 92%), 0 0 0 1px var(--primary-500);
+
+  /* Z-index -- named layers, lowest to highest */
+  --z-sticky: 100;
+  --z-backdrop: 999;
+  --z-dropdown: 1000;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+/* Tailwind v4 CSS-first theme: map the .o_dsaas custom properties above onto
+ * utility-generating tokens (bg-primary-500, text-fg-muted, rounded-lg, ...).
+ * `inline` because the values are `var(--x)` refs, not literals -- Tailwind
+ * must not try to resolve them at build time. */
+@theme inline {
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-300: var(--primary-300);
+  --color-primary-500: var(--primary-500);
+  --color-primary-700: var(--primary-700);
+  --color-primary-900: var(--primary-900);
+
+  --color-accent-50: var(--accent-50);
+  --color-accent-300: var(--accent-300);
+  --color-accent-500: var(--accent-500);
+  --color-accent-700: var(--accent-700);
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-input: var(--border-input);
+  --color-foreground: var(--foreground);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-info: var(--info);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-note-surface: var(--note-surface);
+  --color-note-border: var(--note-border);
+
+  /* Standard shadcn/ui semantic slots, bridged onto the tokens above so a
+   * component pulled in later via `npx shadcn add <x>` (which references
+   * bg-primary, text-muted-foreground, bg-accent, border-input, ring-ring,
+   * etc. by shadcn convention) renders on-brand without hand-patching every
+   * generated file. `accent`/`accent-foreground` here is shadcn's generic
+   * hover/selected-row slot (Radix menus, command palettes, ...) -- it is
+   * intentionally NOT the amber --accent-* scale above, which REDESIGN.md
+   * reserves for AI touchpoints only and must never leak into ordinary
+   * hover states. */
+  --color-primary: var(--primary-500);
+  --color-primary-foreground: white;
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted-foreground: var(--fg-muted);
+  --color-accent: var(--primary-50);
+  --color-accent-foreground: var(--primary-700);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: white;
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--foreground);
+  --color-input: var(--border-input);
+  --color-ring: var(--primary-500);
+
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+
+  --spacing-1: var(--sp-1);
+  --spacing-2: var(--sp-2);
+  --spacing-3: var(--sp-3);
+  --spacing-4: var(--sp-4);
+  --spacing-6: var(--sp-6);
+  --spacing-8: var(--sp-8);
+  --spacing-12: var(--sp-12);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-modal: var(--shadow-modal);
+}
+
+body {
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Focus treatment replaces the border, never stacks a second one
+ * (REDESIGN.md Part 2.6). */
+.o_dsaas :focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
