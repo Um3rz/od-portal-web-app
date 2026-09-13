@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { validateOdooOrigin, SsrfValidationError } from "@/lib/ssrf";
 import { getSession, type OdooAccount } from "@/lib/session";
 import { hit, retryAfterSeconds } from "@/lib/rate-limit";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 const REGISTER_LIMIT = 10;
 const REGISTER_WINDOW_SECONDS = 60;
@@ -128,5 +129,12 @@ export async function POST(req: Request) {
   session.activeAccountId = account.id;
   await session.save();
 
-  return NextResponse.json({ ok: true, contractVersion: pingBody.contract_version });
+  await captureServerEvent(account.id, "server_connected", {
+    account_count: accounts.length,
+    existing_connection: Boolean(existing),
+    external_grant: isExternalGrant,
+    contract_version: pingBody.contract_version,
+  });
+
+  return NextResponse.json({ ok: true, accountId: account.id, contractVersion: pingBody.contract_version });
 }

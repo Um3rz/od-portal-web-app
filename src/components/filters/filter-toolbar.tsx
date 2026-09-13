@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Icon } from "@/components/icon/icon";
+import { captureEvent } from "@/lib/posthog-client";
 
 const PRESETS = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "ALL"] as const;
 
@@ -132,6 +133,15 @@ export function FilterToolbar({ dashboardId, descriptors, applied, onApply, hide
   const multi = descriptors.filter((f) => f.filter_type === "multiselect");
   const numberValue = (id: number) => draft.globalFilters.find((f) => f.conditions_line_id === id)?.filter_values.backend?.toString() ?? "";
   const setNumber = (descriptor: GlobalFilterDescriptor, raw: string) => setDraft((current) => ({ ...current, globalFilters: raw === "" ? current.globalFilters.filter((f) => f.conditions_line_id !== descriptor.conditions_line_id) : [{ conditions_line_id: descriptor.conditions_line_id, filter_values: { backend: Number(raw), frontend: raw, filter_field_type: descriptor.field_type } }, ...current.globalFilters.filter((f) => f.conditions_line_id !== descriptor.conditions_line_id)] }));
+  const applyFilters = (next: DashboardFilterState) => {
+    captureEvent("dashboard_filters_applied", {
+      dashboard_id: dashboardId,
+      filter_count: next.globalFilters.length,
+      has_date_range: Boolean(next.rangeFilter),
+      widget_scope: Boolean(hideToggle),
+    });
+    onApply(next);
+  };
   if (!descriptors.length) return null;
   return <section className={hideToggle ? "" : "mb-5 rounded-lg border border-border bg-surface p-3 shadow-[var(--shadow-raised)]"}>
     {!hideToggle && <div className="flex flex-wrap items-center gap-2">
@@ -162,9 +172,9 @@ export function FilterToolbar({ dashboardId, descriptors, applied, onApply, hide
           </button>
         </span>
       )}
-      {changed && <div className="ml-auto flex gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => { onApply(draft); setOpen(false); }}>Apply filters</Button></div>}
+      {changed && <div className="ml-auto flex gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => { applyFilters(draft); setOpen(false); }}>Apply filters</Button></div>}
     </div>}
-    {hideToggle && changed && <div className="mb-2 flex justify-end gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => onApply(draft)}>Apply</Button></div>}
+    {hideToggle && changed && <div className="mb-2 flex justify-end gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => applyFilters(draft)}>Apply</Button></div>}
     <Collapse open={open}>
       <div className={hideToggle ? "grid gap-3 md:grid-cols-2" : "mt-3 grid gap-3 border-t border-border pt-3 md:grid-cols-2 lg:grid-cols-3"}>
         {date && <DateRangeFilter descriptor={date} value={draft.rangeFilter} onChange={(rangeFilter) => setDraft((current) => ({ ...current, rangeFilter }))} />}

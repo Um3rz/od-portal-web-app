@@ -3,6 +3,7 @@
 // server against Odoo itself), this just forgets the local connection.
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 export async function POST(req: Request) {
   const { accountId } = await req.json().catch(() => ({}));
@@ -10,8 +11,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "accountId is required" }, { status: 400 });
   }
   const session = await getSession();
+  const removedAccount = session.accounts?.find((account) => account.id === accountId);
+  const wasActiveAccount = session.activeAccountId === accountId;
   const remaining = (session.accounts ?? []).filter((a) => a.id !== accountId);
-  if (remaining.length === (session.accounts?.length ?? 0)) {
+  if (!removedAccount) {
     return NextResponse.json({ error: "Unknown account." }, { status: 404 });
   }
   if (remaining.length > 0) {
@@ -21,5 +24,12 @@ export async function POST(req: Request) {
   } else {
     session.destroy();
   }
+
+  await captureServerEvent(removedAccount.id, "server_removed", {
+    active_account: wasActiveAccount,
+    remaining_count: remaining.length,
+    external_grant: Boolean(removedAccount.isExternalGrant),
+  });
+
   return NextResponse.json({ ok: true, remaining: remaining.length });
 }

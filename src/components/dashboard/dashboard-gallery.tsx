@@ -9,6 +9,7 @@ import { Lozenge } from "@/components/ui/tag";
 import { DashboardCardSkeleton } from "@/components/dashboard/dashboard-card-skeleton";
 import { useDashboards } from "@/hooks/use-dashboards";
 import { useFavourites } from "@/hooks/use-favourites";
+import { captureEvent } from "@/lib/posthog-client";
 
 const STATE_TONE: Record<string, "success" | "neutral" | "warning"> = {
   active: "success",
@@ -78,7 +79,15 @@ export function DashboardGallery() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((d) => (
-          <Link key={d.id} href={`/dashboards/${d.id}`}>
+          <Link
+            key={d.id}
+            href={`/dashboards/${d.id}`}
+            onClick={() => captureEvent("dashboard_opened", {
+              dashboard_id: d.id,
+              item_count: d.item_count,
+              dashboard_state: d.state,
+            })}
+          >
             <Card className="flex h-full flex-col gap-3 p-4 transition-shadow hover:shadow-[var(--shadow-overlay)]">
               <div className="flex items-start justify-between">
                 <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary-50 text-primary-500">
@@ -88,6 +97,10 @@ export function DashboardGallery() {
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
+                    captureEvent("dashboard_favourite_toggled", {
+                      dashboard_id: d.id,
+                      favourited: !isFavourite(d.id),
+                    });
                     toggle(d.id);
                   }}
                   className="text-fg-subtle hover:text-primary-500 data-[active=true]:text-primary-500 data-[active=true]:[&_svg]:fill-current"

@@ -9,6 +9,7 @@ import { Icon } from "@/components/icon/icon";
 import { Button } from "@/components/ui/button";
 import { useDashboards } from "@/hooks/use-dashboards";
 import { useViewMode } from "@/components/view-mode-provider";
+import { captureEvent, resetAnalytics } from "@/lib/posthog-client";
 
 export interface TopbarProps { title?: string; subtitle?: string; dashboardId?: number; }
 
@@ -109,9 +110,17 @@ export function Topbar({ title, subtitle, dashboardId }: TopbarProps) {
   // view and every other screen, so the two pickers don't duplicate.
   const showPicker = !(isDashboardsHome && mode === "carousel");
 
+  function changeViewMode(nextMode: "carousel" | "gallery") {
+    if (nextMode === mode) return;
+    captureEvent("dashboard_view_mode_changed", { view_mode: nextMode });
+    setMode(nextMode);
+  }
+
   async function onLogout() {
     if (!window.confirm("Disconnect this server? You'll stay signed in to any other connected servers.")) return;
-    await fetch("/api/tenant/logout", { method: "POST" });
+    const response = await fetch("/api/tenant/logout", { method: "POST" });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok && body.remaining === 0) resetAnalytics();
     // A previous account's cache must never leak into whichever account is
     // active afterward -- see hooks/use-dashboards.ts. The layout server
     // component decides where "afterward" is: /dashboards if another
@@ -154,8 +163,8 @@ export function Topbar({ title, subtitle, dashboardId }: TopbarProps) {
       <nav className="flex shrink-0 items-center gap-1" aria-label="Application navigation">
         {isDashboardsHome && (
           <div className="mr-1 flex items-center gap-0.5 rounded-md bg-muted p-0.5" role="group" aria-label="Switch dashboards view">
-            <button type="button" onClick={() => setMode("carousel")} aria-pressed={mode === "carousel"} aria-label="Carousel view" className={`flex h-8 w-8 items-center justify-center rounded ${mode === "carousel" ? "bg-surface text-primary-700 shadow-sm" : "text-fg-muted hover:text-primary-700"}`}><Icon name="columns" size={16} /></button>
-            <button type="button" onClick={() => setMode("gallery")} aria-pressed={mode === "gallery"} aria-label="Gallery view" className={`flex h-8 w-8 items-center justify-center rounded ${mode === "gallery" ? "bg-surface text-primary-700 shadow-sm" : "text-fg-muted hover:text-primary-700"}`}><Icon name="tile" size={16} /></button>
+            <button type="button" onClick={() => changeViewMode("carousel")} aria-pressed={mode === "carousel"} aria-label="Carousel view" className={`flex h-8 w-8 items-center justify-center rounded ${mode === "carousel" ? "bg-surface text-primary-700 shadow-sm" : "text-fg-muted hover:text-primary-700"}`}><Icon name="columns" size={16} /></button>
+            <button type="button" onClick={() => changeViewMode("gallery")} aria-pressed={mode === "gallery"} aria-label="Gallery view" className={`flex h-8 w-8 items-center justify-center rounded ${mode === "gallery" ? "bg-surface text-primary-700 shadow-sm" : "text-fg-muted hover:text-primary-700"}`}><Icon name="tile" size={16} /></button>
           </div>
         )}
         <ServerSwitcher />

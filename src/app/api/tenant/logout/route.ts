@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { callOdoo, OdooUnauthenticatedError } from "@/lib/odoo-client";
 import { getSession } from "@/lib/session";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 export async function POST() {
   try {
@@ -13,7 +14,8 @@ export async function POST() {
     if (!(err instanceof OdooUnauthenticatedError)) throw err;
   }
   const session = await getSession();
-  const remaining = (session.accounts ?? []).filter((a) => a.id !== session.activeAccountId);
+  const disconnectedAccountId = session.activeAccountId;
+  const remaining = (session.accounts ?? []).filter((a) => a.id !== disconnectedAccountId);
   if (remaining.length > 0) {
     session.accounts = remaining;
     session.activeAccountId = remaining[0].id;
@@ -21,5 +23,12 @@ export async function POST() {
   } else {
     session.destroy();
   }
+
+  if (disconnectedAccountId) {
+    await captureServerEvent(disconnectedAccountId, "server_disconnected", {
+      remaining_count: remaining.length,
+    });
+  }
+
   return NextResponse.json({ ok: true, remaining: remaining.length });
 }

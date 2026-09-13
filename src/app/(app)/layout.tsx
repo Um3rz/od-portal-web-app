@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <SessionProvider isExternalGrant={!!account.isExternalGrant}>
+    <SessionProvider accountId={account.id} isExternalGrant={!!account.isExternalGrant}>
       <ViewModeProvider>
         <div className="flex h-dvh w-full flex-col overflow-hidden">
           <Topbar />

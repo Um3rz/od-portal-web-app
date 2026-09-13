@@ -12,6 +12,7 @@ import { useCreateAlert } from "@/hooks/use-alerts";
 import type { AlertOperator, AlertScope } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { captureClientException, captureEvent } from "@/lib/posthog-client";
 
 const OPERATORS: Array<{ value: AlertOperator; label: string }> = [
   { value: "below", label: "Below" },
@@ -66,9 +67,21 @@ export function AlertDialog({ dashboardId, analyticId, widgetName, onClose }: { 
         ...(needsWindow ? { window_days: Number(windowDays) || 7 } : {}),
       },
       {
-        onSuccess: onClose,
-        onError: (err) =>
-          setError(err instanceof ApiError && err.status === 404 ? "Alerts aren't available for this account." : "Couldn't create the alert."),
+        onSuccess: () => {
+          captureEvent("alert_created", {
+            dashboard_id: dashboardId,
+            analytic_id: analyticId,
+            operator,
+            scope,
+            has_threshold: needsThreshold,
+            window_days: needsWindow ? Number(windowDays) || 7 : undefined,
+          });
+          onClose();
+        },
+        onError: (err) => {
+          captureClientException(err);
+          setError(err instanceof ApiError && err.status === 404 ? "Alerts aren't available for this account." : "Couldn't create the alert.");
+        },
       },
     );
   }

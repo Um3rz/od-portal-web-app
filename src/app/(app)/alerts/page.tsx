@@ -13,6 +13,7 @@ import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notificat
 import { useAlerts, useDeleteAlert } from "@/hooks/use-alerts";
 import { useIsExternalGrant } from "@/components/session-provider";
 import { ApiError } from "@/lib/api";
+import { captureEvent } from "@/lib/posthog-client";
 
 const INBOX_LIMIT = 15;
 
@@ -73,7 +74,12 @@ export default function AlertsPage() {
                   <Card
                     key={n.id}
                     className={n.state !== "read" ? "cursor-pointer border-primary-300 p-4" : "cursor-pointer p-4"}
-                    onClick={() => n.state !== "read" && markRead.mutate(n.id)}
+                    onClick={() => n.state !== "read" && markRead.mutate(n.id, {
+                      onSuccess: () => captureEvent("notification_marked_read", {
+                        notification_id: n.id,
+                        notification_kind: n.kind,
+                      }),
+                    })}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-semibold">{n.title}</p>
@@ -118,7 +124,14 @@ export default function AlertsPage() {
                         </p>
                         <p className="mt-1 text-xs text-fg-subtle">{rule.dashboard_name || `Dashboard ${rule.dashboard_id}`}</p>
                       </div>
-                      <Button variant="ghost" size="compact" onClick={() => deleteAlert.mutate(rule.id)} aria-label="Remove alert">
+                      <Button variant="ghost" size="compact" onClick={() => deleteAlert.mutate(rule.id, {
+                        onSuccess: () => captureEvent("alert_deleted", {
+                          alert_id: rule.id,
+                          dashboard_id: rule.dashboard_id,
+                          analytic_id: rule.analytic_id,
+                          operator: rule.operator,
+                        }),
+                      })} aria-label="Remove alert">
                         <Icon name="trash" size={15} />
                       </Button>
                     </div>

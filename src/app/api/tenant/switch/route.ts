@@ -4,6 +4,7 @@
 // re-entering credentials, same as the mobile app's server switcher.
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 export async function POST(req: Request) {
   const { accountId } = await req.json().catch(() => ({}));
@@ -19,6 +20,11 @@ export async function POST(req: Request) {
 
   session.activeAccountId = account.id;
   await session.save();
+
+  await captureServerEvent(account.id, "server_switched", {
+    account_count: session.accounts?.length ?? 0,
+    external_grant: Boolean(account.isExternalGrant),
+  });
 
   return NextResponse.json({ ok: true });
 }

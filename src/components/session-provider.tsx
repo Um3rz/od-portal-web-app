@@ -1,13 +1,18 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect } from "react";
+import { identifyAccount, initAnalytics } from "@/lib/posthog-client";
 
 // Read server-side once in (app)/layout.tsx (a server component with access
 // to the encrypted session) and handed down as plain props -- no client-side
-// session fetch/endpoint needed for one boolean.
+// session fetch/endpoint needed.
 const SessionContext = createContext(false);
 
-export function SessionProvider({ isExternalGrant, children }: { isExternalGrant: boolean; children: React.ReactNode }) {
+export function SessionProvider({ accountId, isExternalGrant, children }: { accountId: string; isExternalGrant: boolean; children: React.ReactNode }) {
+  useEffect(() => {
+    initAnalytics();
+    identifyAccount(accountId);
+  }, [accountId]);
   return <SessionContext.Provider value={isExternalGrant}>{children}</SessionContext.Provider>;
 }
 
