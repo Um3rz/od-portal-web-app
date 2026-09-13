@@ -29,7 +29,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${schibstedGrotesk.variable} ${instrumentSans.variable} o_dsaas h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground font-body">
+      {/* suppressHydrationWarning is scoped to this element's own attributes
+          only (children are still checked normally) -- needed because
+          browser extensions like Grammarly inject data-gr-* attributes onto
+          <body> before React hydrates, which is a false-positive mismatch,
+          not a real one. */}
+      <body className="min-h-full flex flex-col bg-background text-foreground font-body" suppressHydrationWarning>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>

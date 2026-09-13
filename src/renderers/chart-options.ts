@@ -46,14 +46,23 @@ export function buildBarLineAreaOption(type: string, rows: ChartRow[], config: R
         areaStyle: type === "area_chart" ? { opacity: 0.22, color: "hsl(244 100% 90%)" } : undefined,
         showSymbol: line,
       }];
+  const horizontalValues = horizontal
+    ? series.flatMap((entry) => (Array.isArray(entry.data) ? entry.data.filter((v): v is number => typeof v === "number") : []))
+    : [];
+  const hasNegative = horizontalValues.some((v) => v < 0);
+  const horizontalMax = horizontalValues.length ? Math.max(...horizontalValues, 0) : 0;
   return {
     animation: false,
     color: palette,
-    grid: { left: horizontal ? 132 : 48, right: 24, top: 24, bottom: horizontal ? 30 : 56, containLabel: true },
+    // containLabel:true already reserves room for the y-axis category labels
+    // (up to yAxis.axisLabel.width below) on top of `left` -- `left` here is
+    // just the small margin before that reserved label space, not an extra
+    // fixed offset in front of it.
+    grid: { left: horizontal ? 12 : 48, right: 24, top: 24, bottom: horizontal ? 30 : 56, containLabel: true },
     tooltip: { trigger: "axis" },
     legend: series.length > 1 ? { bottom: 4, type: "scroll" } : undefined,
-    xAxis: horizontal ? { type: "value", name: optionalLabel(config.x_axis_label), splitNumber: 4, axisLabel: { hideOverlap: true } } : { type: "category", data: labels, axisLabel: { rotate: Number(config.angle_labels_x_axis ?? 0), interval: config.show_all_labels_x_axis ? 0 : "auto", hideOverlap: true }, name: optionalLabel(config.x_axis_label) },
-    yAxis: horizontal ? { type: "category", data: labels, axisLabel: { width: 124, overflow: "truncate", hideOverlap: true }, name: optionalLabel(config.y_axis_label) } : { type: "value", name: optionalLabel(config.y_axis_label) },
+    xAxis: horizontal ? { type: "value", name: optionalLabel(config.x_axis_label), min: hasNegative ? undefined : 0, max: hasNegative ? undefined : horizontalMax || undefined, splitNumber: 4, axisLabel: { hideOverlap: true } } : { type: "category", data: labels, axisLabel: { rotate: Number(config.angle_labels_x_axis ?? 0), interval: config.show_all_labels_x_axis ? 0 : "auto", hideOverlap: true }, name: optionalLabel(config.x_axis_label) },
+    yAxis: horizontal ? { type: "category", data: labels, inverse: true, axisLabel: { width: 124, overflow: "truncate", hideOverlap: true }, name: optionalLabel(config.y_axis_label) } : { type: "value", name: optionalLabel(config.y_axis_label) },
     series: horizontal ? series.map((entry) => ({ ...entry, barMaxWidth: 22 })) : series,
   };
 }

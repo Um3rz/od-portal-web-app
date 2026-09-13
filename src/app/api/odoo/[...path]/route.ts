@@ -14,6 +14,17 @@ const SESSION_WINDOW_SECONDS = 60;
 const ALLOWED_PREFIX = "/mobile/v1/";
 
 async function handle(req: Request, path: string[]) {
+  // Next decodes each catch-all segment before handing it to us, but does
+  // NOT collapse "." / ".." segments -- that happens later, inside fetch()'s
+  // URL parser, when `${origin}${upstreamPath}` is resolved as a full URL.
+  // A prefix check on the pre-normalization string can pass
+  // ("/mobile/v1/../../web/login".startsWith("/mobile/v1/") is true) for a
+  // path that resolves somewhere else entirely once fetched
+  // ("${origin}/web/login") -- reject dot-segments outright rather than
+  // trying to out-think URL normalization.
+  if (path.some((segment) => segment === "." || segment === "..")) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
   const upstreamPath = `/${path.join("/")}`;
   if (!upstreamPath.startsWith(ALLOWED_PREFIX)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

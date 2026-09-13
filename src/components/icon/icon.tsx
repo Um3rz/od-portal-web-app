@@ -19,6 +19,7 @@ const ALIAS: Record<string, string> = {
   "plus-circle": "plus",
   compress: "fullscreen",
   expand: "fullscreen",
+  maximize: "fullscreen",
   copy: "duplicate",
   refresh: "refresh",
   "pie-chart": "doughnut",

@@ -27,6 +27,30 @@ function toggleOption(filters: AppliedGlobalFilter[], descriptor: GlobalFilterDe
     : [...filters, { conditions_line_id: descriptor.conditions_line_id, filter_values: option }];
 }
 
+// Collapsed by default, same as MultiSelectFilter below -- was previously
+// always-open (no header/toggle at all), the only field card in the panel
+// that didn't match the rest.
+function DateRangeFilter({ descriptor, value, onChange }: { descriptor: GlobalFilterDescriptor; value: RangeFilter | null; onChange: (next: RangeFilter | null) => void }) {
+  const [open, setOpen] = useState(false);
+  return <div className="rounded-md border border-border bg-surface p-3">
+    <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-left text-sm font-medium">
+      <span>{descriptor.description || "Date range"} {value && <span className="text-xs text-primary-700">({value.fromDate} – {value.toDate})</span>}</span>
+      <Icon name={open ? "chevron-up" : "chevron-down"} size={15} />
+    </button>
+    {open && <div className="mt-3">
+      <div className="mb-3 flex flex-wrap gap-1">{PRESETS.map((preset) => <button key={preset} type="button" onClick={() => onChange(dateForPreset(preset))} className="rounded border border-border px-2 py-1 text-xs hover:bg-primary-50">{preset}</button>)}</div>
+      {/* Stacked, not side-by-side: this card can render inside the narrow
+          per-widget filter popover (~20rem), and a native date input needs
+          real width for its placeholder + picker icon -- squeezed to ~half
+          that, Chrome renders it garbled. */}
+      <div className="grid grid-cols-1 gap-2">
+        <Input type="date" aria-label="From date" value={value?.fromDate ?? ""} onChange={(e) => onChange(e.target.value ? { fromDate: e.target.value, toDate: value?.toDate ?? e.target.value } : null)} />
+        <Input type="date" aria-label="To date" value={value?.toDate ?? ""} onChange={(e) => onChange(e.target.value ? { fromDate: value?.fromDate ?? e.target.value, toDate: e.target.value } : null)} />
+      </div>
+    </div>}
+  </div>;
+}
+
 function MultiSelectFilter({ dashboardId, descriptor, value, onChange }: { dashboardId: number; descriptor: GlobalFilterDescriptor; value: AppliedGlobalFilter[]; onChange: (next: AppliedGlobalFilter[]) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -73,9 +97,9 @@ function MultiSelectFilter({ dashboardId, descriptor, value, onChange }: { dashb
   </div>;
 }
 
-export function FilterToolbar({ dashboardId, descriptors, applied, onApply }: { dashboardId: number; descriptors: GlobalFilterDescriptor[]; applied: DashboardFilterState; onApply: (next: DashboardFilterState) => void }) {
+export function FilterToolbar({ dashboardId, descriptors, applied, onApply, hideToggle }: { dashboardId: number; descriptors: GlobalFilterDescriptor[]; applied: DashboardFilterState; onApply: (next: DashboardFilterState) => void; hideToggle?: boolean }) {
   const [draft, setDraft] = useState(applied);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(hideToggle));
   const changed = !sameFilters(draft, applied);
   const date = descriptors.find((f) => f.filter_type === "date");
   const numerical = descriptors.filter((f) => f.filter_type === "numerical");
@@ -83,15 +107,40 @@ export function FilterToolbar({ dashboardId, descriptors, applied, onApply }: { 
   const numberValue = (id: number) => draft.globalFilters.find((f) => f.conditions_line_id === id)?.filter_values.backend?.toString() ?? "";
   const setNumber = (descriptor: GlobalFilterDescriptor, raw: string) => setDraft((current) => ({ ...current, globalFilters: raw === "" ? current.globalFilters.filter((f) => f.conditions_line_id !== descriptor.conditions_line_id) : [{ conditions_line_id: descriptor.conditions_line_id, filter_values: { backend: Number(raw), frontend: raw, filter_field_type: descriptor.field_type } }, ...current.globalFilters.filter((f) => f.conditions_line_id !== descriptor.conditions_line_id)] }));
   if (!descriptors.length) return null;
-  return <section className="mb-5 rounded-lg border border-border bg-surface p-3 shadow-[var(--shadow-raised)]">
-    <div className="flex flex-wrap items-center gap-2">
+  return <section className={hideToggle ? "" : "mb-5 rounded-lg border border-border bg-surface p-3 shadow-[var(--shadow-raised)]"}>
+    {!hideToggle && <div className="flex flex-wrap items-center gap-2">
       <button type="button" onClick={() => setOpen((v) => !v)} className="flex h-8 items-center gap-2 rounded-md bg-muted px-3 text-sm font-medium"><Icon name="filter" size={15} />Filters {changed && <span className="h-2 w-2 rounded-full bg-primary-500" />}</button>
-      {draft.rangeFilter && <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs text-primary-700">{draft.rangeFilter.fromDate} – {draft.rangeFilter.toDate}</span>}
-      {draft.globalFilters.length > 0 && <span className="text-xs text-fg-muted">{draft.globalFilters.length} value{draft.globalFilters.length === 1 ? "" : "s"} selected</span>}
+      {draft.rangeFilter && (
+        <span className="flex items-center gap-1 rounded-full bg-primary-50 py-1 pr-1 pl-2.5 text-xs text-primary-700">
+          {draft.rangeFilter.fromDate} – {draft.rangeFilter.toDate}
+          <button
+            type="button"
+            onClick={() => { const next = { ...draft, rangeFilter: null }; setDraft(next); onApply(next); }}
+            aria-label="Clear date range filter"
+            className="rounded-full p-0.5 hover:bg-primary-100"
+          >
+            <Icon name="close" size={11} />
+          </button>
+        </span>
+      )}
+      {draft.globalFilters.length > 0 && (
+        <span className="flex items-center gap-1 rounded-full bg-muted py-1 pr-1 pl-2.5 text-xs text-fg-muted">
+          {draft.globalFilters.length} value{draft.globalFilters.length === 1 ? "" : "s"} selected
+          <button
+            type="button"
+            onClick={() => { const next = { ...draft, globalFilters: [] }; setDraft(next); onApply(next); }}
+            aria-label="Clear selected filter values"
+            className="rounded-full p-0.5 hover:bg-[hsl(220_13%_85%)]"
+          >
+            <Icon name="close" size={11} />
+          </button>
+        </span>
+      )}
       {changed && <div className="ml-auto flex gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => { onApply(draft); setOpen(false); }}>Apply filters</Button></div>}
-    </div>
-    {open && <div className="mt-3 grid gap-3 border-t border-border pt-3 md:grid-cols-2 lg:grid-cols-3">
-      {date && <div className="rounded-md border border-border bg-surface p-3"><p className="mb-2 text-sm font-medium">{date.description || "Date range"}</p><div className="mb-3 flex flex-wrap gap-1">{PRESETS.map((preset) => <button key={preset} type="button" onClick={() => setDraft((current) => ({ ...current, rangeFilter: dateForPreset(preset) }))} className="rounded border border-border px-2 py-1 text-xs hover:bg-primary-50">{preset}</button>)}</div><div className="grid grid-cols-2 gap-2"><Input type="date" aria-label="From date" value={draft.rangeFilter?.fromDate ?? ""} onChange={(e) => setDraft((current) => ({ ...current, rangeFilter: e.target.value ? { fromDate: e.target.value, toDate: current.rangeFilter?.toDate ?? e.target.value } : null }))} /><Input type="date" aria-label="To date" value={draft.rangeFilter?.toDate ?? ""} onChange={(e) => setDraft((current) => ({ ...current, rangeFilter: e.target.value ? { fromDate: current.rangeFilter?.fromDate ?? e.target.value, toDate: e.target.value } : null }))} /></div></div>}
+    </div>}
+    {hideToggle && changed && <div className="mb-2 flex justify-end gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => onApply(draft)}>Apply</Button></div>}
+    {open && <div className={hideToggle ? "grid gap-3 md:grid-cols-2" : "mt-3 grid gap-3 border-t border-border pt-3 md:grid-cols-2 lg:grid-cols-3"}>
+      {date && <DateRangeFilter descriptor={date} value={draft.rangeFilter} onChange={(rangeFilter) => setDraft((current) => ({ ...current, rangeFilter }))} />}
       {numerical.map((descriptor) => <div key={descriptor.conditions_line_id} className="rounded-md border border-border bg-surface p-3"><label className="mb-2 block text-sm font-medium" htmlFor={`number-${descriptor.conditions_line_id}`}>{descriptor.description || descriptor.column_name}</label><Input id={`number-${descriptor.conditions_line_id}`} type="number" value={numberValue(descriptor.conditions_line_id)} onChange={(e) => setNumber(descriptor, e.target.value)} placeholder={descriptor.field_type} /></div>)}
       {multi.map((descriptor) => <MultiSelectFilter key={descriptor.conditions_line_id} dashboardId={dashboardId} descriptor={descriptor} value={draft.globalFilters} onChange={(globalFilters) => setDraft((current) => ({ ...current, globalFilters }))} />)}
     </div>}

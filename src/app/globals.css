@@ -194,3 +194,39 @@ h1, h2, h3, h4, h5, h6 {
   outline: none;
   box-shadow: var(--focus-ring);
 }
+
+/* Skeleton loaders -- ported from odoo_dashboards_saas's
+ * static/src/styles/skeleton-card.css. Every grey block shares this one
+ * sweep; the gradient is wider than the element so the highlight travels
+ * across it, same technique as the addon (plain CSS keyframe, not a drawn
+ * spinner icon). */
+.skel-bar {
+  display: block;
+  border-radius: var(--radius-sm);
+  background-color: var(--muted);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.75) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skel-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skel-sweep {
+  0% {
+    background-position: -120% 0;
+  }
+  100% {
+    background-position: 220% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel-bar {
+    animation: none;
+    background-image: none;
+  }
+}

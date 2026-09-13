@@ -80,10 +80,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not verify this key." }, { status: 502 });
   }
 
+  // External-access grants 404 on every internal-only route (notifications,
+  // alerts, devices -- _internal_mobile_or_404 in mobile.py); probing one of
+  // them here is the only way to tell the two key types apart, since the
+  // backend has no dedicated "what kind of key is this" field. Same heuristic
+  // the reference mobile client uses (codename-portals' probeExternal()).
+  let isExternalGrant = false;
+  try {
+    const probe = await fetch(`${origin}/mobile/v1/notifications`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      redirect: "manual",
+      cache: "no-store",
+    });
+    isExternalGrant = probe.status === 404;
+  } catch {
+    // Unreachable here is surprising (the key check above just succeeded
+    // against the same origin) -- default to false rather than hiding
+    // internal-only UI for a real internal user over a transient blip.
+  }
+
   const session = await getSession();
   session.odooOrigin = origin;
   session.apiKey = apiKey;
   session.contractVersion = pingBody.contract_version;
+  session.isExternalGrant = isExternalGrant;
   await session.save();
 
   return NextResponse.json({ ok: true, contractVersion: pingBody.contract_version });

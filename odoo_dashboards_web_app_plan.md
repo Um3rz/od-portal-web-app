@@ -6,14 +6,14 @@ Build a centrally hosted, multi-tenant Next.js dashboard web app that shares the
 
 The first release covers:
 
-- dashboard catalog, search, favourites, and dashboard detail;
+- dashboard catalog, search, favourites, and dashboard detail, with a carousel home view (starred dashboard first) and a card-grid gallery view, switchable at any time;
 - responsive dashboard rendering and fullscreen widgets;
 - date, numerical, eager multiselect, and lazy typeahead filters;
 - tile, sticky note, bar, line, area, doughnut, funnel, table, heatmap, and matrix widgets;
 - cached/offline read state, alerts, notification inbox, and notification read state;
 - internal API-key users and external time-limited dashboard grants, with the same restrictions enforced by Odoo.
 
-Map and pivot rendering remain explicit v1 exclusions, matching the mobile scope. Dashboard authoring/builder editing is a later phase; this plan establishes the visual foundation so the viewer and future builder share one design system.
+Map and pivot rendering remain explicit v1 exclusions, matching the mobile scope. **This app is a read-only viewer for dashboards authored in Odoo — dashboard/widget authoring and builder editing are out of scope entirely**, not a later phase (a builder-ready theme shell was prototyped on 2026-09-10 and reverted the same day; see the technical plan's F6 checkpoint).
 
 ## 2. Decisions and architecture
 
@@ -58,7 +58,7 @@ All limits return `429` with `Retry-After`. The browser client uses bounded expo
 
 ## 3. Frontend theme and visual system
 
-The screenshot is the visual reference for the Next.js app: white surfaces, cool gray workspace chrome, strong indigo primary actions, compact dense controls, rounded cards, thin borders, and a three-region builder composition (navigation rail, analytics-item list, configuration/preview workspace).
+The screenshot is the visual reference for the Next.js app's surfaces and controls: white surfaces, cool gray workspace chrome, strong indigo primary actions, compact dense controls, rounded cards, thin borders. (Its three-region builder composition is not reproduced here — this app has no builder; see §1.)
 
 ### 3.1 Theme ownership and scoping
 
@@ -104,12 +104,19 @@ Viewer layout:
 - top bar with back navigation, dashboard title/subtitle, settings/filter/open-dashboard actions, and primary “New item” action where builder controls are enabled;
 - dashboard workspace with filter toolbar, responsive widget grid, status badges, and offline/as-of banner.
 
-Builder-ready layout (future phase, but theme-compatible now):
+No builder layout: a three-region builder shell (analytics-item list, configuration tabs/visualization
+picker, live-preview panel) was prototyped on 2026-09-10 and reverted the same day — see §1 and the
+technical plan's F6 checkpoint. Not a future phase; not reproduced here.
 
-- left rail: “Odoo Dashboards”, Configurations, API Configuration, Advanced Configuration, and dashboard shortcuts;
-- analytics-items column: count badge, collapse affordance, icon, item name, analytical type, selection state;
-- main configuration panel: toolbar, General/Configuration/Filters tabs, form controls, visualization picker, and destructive actions;
-- live-preview panel: refresh button, empty state, and widget preview surface.
+Home/landing layout (default view at `/dashboards`, added 2026-09-10, see the technical plan's F7
+checkpoint): a single-dashboard-at-a-time carousel, favourited dashboards ordered first so a starred
+dashboard loads immediately on landing (no picker screen first). A name-picker strip sits beneath the
+topbar (click any name to jump directly to that dashboard); the main area slides between dashboards with a
+CSS transition; a floating pill at the bottom holds prev/next arrow buttons and dot indicators, both driving
+the same active-index state as the name picker. A topbar toggle switches back to the pre-existing card-grid
+gallery view (search, favourite star, state badge) at any time; the choice is remembered per browser. The
+topbar's own dashboard-name dropdown only appears outside carousel mode (gallery, detail, alerts, settings)
+since the carousel already surfaces the active dashboard's name in its own picker strip.
 
 At widths below the desktop breakpoint, collapse the rail to a drawer, stack configuration and preview panels, turn the analytics-item column into a horizontal/overlay selector, and keep filters reachable without horizontal page scroll. Tables scroll within their own container.
 
@@ -135,7 +142,15 @@ Use React Query with stable keys containing tenant, session identity, dashboard 
 - Draft values do not refetch. Apply commits the filter hash; Reset returns to the unfiltered cache key.
 - Render `global_filter_unapplied` exactly as returned by Odoo (“Not filtered by …”).
 
-**Reference implementation shipped in the mobile app** (`codename-portals`, 2026-09-08, commit `241e33a` + follow-ups): client-side multiselect (eager + lazy typeahead) and numerical global filters, using exactly this draft/commit pattern (`GlobalFilterRow` component) so keystrokes never refetch. Both the date-range panel and each multiselect row render collapsed by default behind a dropdown-style header (light-gray pill, tap to expand) rather than always-open inputs — worth matching in F3 for visual consistency between clients. Per-widget filtering does not exist and is not planned; filters are dashboard-global, and a widget either applies them or shows the `global_filter_unapplied` badge, based solely on whether its dataset has the matching column.
+**Reference implementation shipped in the mobile app** (`codename-portals`, 2026-09-08, commit `241e33a` + follow-ups): client-side multiselect (eager + lazy typeahead) and numerical global filters, using exactly this draft/commit pattern (`GlobalFilterRow` component) so keystrokes never refetch. Both the date-range panel and each multiselect row render collapsed by default behind a dropdown-style header (light-gray pill, tap to expand) rather than always-open inputs — worth matching in F3 for visual consistency between clients.
+
+**Per-widget filtering** (added 2026-09-10, see the technical plan's F6 checkpoint): each widget carries its
+own quick-range preset chips (Y/1D/7D/30D/MTD/YTD) plus a funnel icon (with an active-filter-count badge)
+that opens the same field panel the dashboard-level toolbar uses, scoped to that one widget. Setting a
+widget's own filter fetches that widget's payload independently (`item_ids` scoped to just that widget) —
+every other widget on the dashboard keeps using the single shared bulk fetch, so one widget's override
+doesn't cost its siblings a request. A widget with no override still falls back to the dashboard's committed
+filters and the `global_filter_unapplied` badge exactly as before.
 
 ### Alerts and notification inbox
 
@@ -157,8 +172,9 @@ Reuse extracted Odoo option/model builders where available so web and mobile cha
 | F3 | Filters | Date presets, numerical inputs, eager/lazy multiselect, apply/reset, filter hashing, cancellation, unapplied badges. | Filter behavior matches Odoo/mobile fixtures and never shows stale results. | Planned |
 | F4 | Renderer parity | Tile, sticky note, charts, table, heatmap, matrix, fullscreen, unsupported/error cards. | Payload/options and visual snapshots match mobile/Odoo fixtures. | Planned |
 | F5 | Workflow parity | Alerts CRUD, notification inbox/read state, external-grant restrictions, session/profile management. | Internal users can create/read/delete rules; external users cannot access internal-only routes; inbox reflects a notification within the triggering dashboard's own refresh cadence (now event-driven server-side, see §2), not a fixed poll interval. | Planned — mobile has a shipped reference implementation (inbox + rules screen, fetch-on-focus, no polling) |
-| F6 | Builder-ready theme | Builder three-region shell, analytics item list, configuration tabs, visualization picker, live-preview empty/loading states, shared forms. | Supplied design reference is reproduced at desktop and remains usable responsively. | Planned |
-| F7 | Release hardening | Accessibility, browser matrix, load tests, retry/rate-limit soak tests, security review, deployment/runbook, staged rollout. | Release checklist passes with measured performance and no critical security findings. | Planned |
+| F6 | ~~Builder-ready theme~~ Widget-level filters & table aggregation | **Not a builder** (see §1) — this app is viewer-only. Built instead: real per-widget filter overrides (quick-range chips + scoped filter panel) and sum/group-by for table & matrix widgets. | A widget can show data on a different range/filter than its dashboard's committed filters; table totals and grouped subtotals match a manual sum of the raw rows. | Built |
+| F7 | Home experience: carousel + gallery | Landing page defaults to a single-dashboard-at-a-time carousel (starred dashboards first), name picker beneath the topbar, slide animation, floating prev/next/dot nav, and a topbar switcher back to the existing gallery view. | Landing on `/dashboards` loads a dashboard immediately (no picker first); gallery view is one click away and unchanged. | Built |
+| F8 | Release hardening | Accessibility, browser matrix, load tests, retry/rate-limit soak tests, security review, deployment/runbook, staged rollout. | Release checklist passes with measured performance and no critical security findings. | In progress — see the technical plan's F8 checkpoint for what's done vs. blocked on live infra |
 
 ## 6. Verification matrix
 
@@ -176,6 +192,6 @@ Reuse extracted Odoo option/model builders where available so web and mobile cha
 - Odoo remains the source of truth for authorization and dashboard semantics.
 - API-key paste is the only v1 authentication flow.
 - Favorites and layout preferences are local to each web/mobile client in v1; cross-platform preference synchronization is a later API decision.
-- The web app is viewer-first. Builder editing is represented in the shared theme and scheduled as a later capability phase.
+- The web app is viewer-only. Builder editing is out of scope entirely, not a later capability phase (see §1).
 - The mobile app (`codename-portals`, this repo) is ahead of this plan and is the running reference for contract behavior: Phases 2–4 are shipped, including client-side global filters (multiselect/numerical, dropdown-style collapsed panels), the alerts/notification inbox with fetch-on-focus (no polling), and a biometric app-lock (device-only; the web app has no equivalent — it relies on the encrypted server-side session instead, per §2 Deployment and identity). It is currently in store-submission prep (`app.json`, legal pages, EAS build config) — none of that is web-app scope, noted only so this plan doesn't re-derive decisions the mobile client already made.
 - `odoo_dashboards_saas`'s alerts/notifications backend was rewritten 2026-09 to be event-driven (§2); the `/mobile/v1/notifications` and `/mobile/v1/alerts` wire contract itself did not change, only server-side delivery latency and retention.

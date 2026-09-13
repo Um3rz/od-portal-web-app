@@ -2,6 +2,7 @@
 // 68 icons, 24x24 grid, 20px live area, 1.6 stroke, round caps/joins. Inner SVG markup only;
 // the Icon component supplies the wrapping <svg fill="none" stroke="currentColor" ...>.
 export const ICONS: Record<string, string> = {
+  "bell": "<path d='M6 10.5a6 6 0 1 1 12 0c0 4.2 1.5 5.5 1.5 5.5h-15s1.5-1.3 1.5-5.5Z'></path><path d='M10 19a2 2 0 0 0 4 0'></path>",
   "chevron-left": "<path d='M15 5l-7 7 7 7'></path>",
   "chevron-right": "<path d='M9 5l7 7-7 7'></path>",
   "chevron-down": "<path d='M5 9l7 7 7-7'></path>",
@@ -30,6 +31,7 @@ export const ICONS: Record<string, string> = {
   "external-link": "<path d='M14 4h6v6M20 4l-8.5 8.5M18 13.5V18a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 18V9a2.5 2.5 0 0 1 2.5-2.5H11'></path>",
   "check": "<path d='M5 12.8l4.6 4.6L19 6.5'></path>",
   "check-circle": "<circle cx='12' cy='12' r='8.5'></circle><path d='m8.4 12.2 2.6 2.6 4.8-5.2'></path>",
+  "star": "<path d='M12 3.5l2.6 5.4 5.9.8-4.3 4.2 1 5.9L12 17l-5.2 2.8 1-5.9-4.3-4.2 5.9-.8Z'></path>",
   "alert-triangle": "<path d='M12 4.2 21 19.5H3L12 4.2Z'></path><path d='M12 10v4.2'></path><circle cx='12' cy='17.1' r='1' fill='currentColor' stroke='none'></circle>",
   "alert-circle": "<circle cx='12' cy='12' r='8.5'></circle><path d='M12 7.8V13'></path><circle cx='12' cy='16.1' r='1' fill='currentColor' stroke='none'></circle>",
   "info": "<circle cx='12' cy='12' r='8.5'></circle><path d='M12 11.4v4.8'></path><circle cx='12' cy='8.3' r='1' fill='currentColor' stroke='none'></circle>",
