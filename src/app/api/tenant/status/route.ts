@@ -16,9 +16,10 @@ export async function GET() {
   }
   const accounts = (session.accounts ?? []).map((account) => ({
     id: account.id,
+    name: account.name,
     odooOrigin: account.odooOrigin,
     apiKeyLast4: last4(account.apiKey),
     isActive: account.id === session.activeAccountId,
   }));
-  return NextResponse.json({ odooOrigin: active.odooOrigin, apiKeyLast4: last4(active.apiKey), accounts });
+  return NextResponse.json({ name: active.name, odooOrigin: active.odooOrigin, apiKeyLast4: last4(active.apiKey), accounts });
 }

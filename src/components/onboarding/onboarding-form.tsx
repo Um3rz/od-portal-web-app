@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 export function OnboardingForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [name, setName] = useState("");
   const [odooUrl, setOdooUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "error" | "ok">("idle");
@@ -24,7 +25,7 @@ export function OnboardingForm() {
     const res = await fetch("/api/tenant/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ odooUrl, apiKey }),
+      body: JSON.stringify({ odooUrl, apiKey, name }),
     });
     const body = await res.json();
     if (res.ok) {
@@ -49,6 +50,18 @@ export function OnboardingForm() {
           <h1 className="text-lg font-heading font-bold">Connect your Odoo</h1>
         </div>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="serverName" className="text-xs font-medium text-fg-muted">
+              Server name
+            </label>
+            <Input
+              id="serverName"
+              placeholder="e.g. Production"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="odooUrl" className="text-xs font-medium text-fg-muted">
               Odoo URL

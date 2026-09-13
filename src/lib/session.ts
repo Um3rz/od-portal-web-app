@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 
 export interface OdooAccount {
   id: string;
+  name: string;
   odooOrigin: string;
   apiKey: string;
   isExternalGrant?: boolean;

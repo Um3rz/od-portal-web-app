@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/icon/icon";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,86 @@ import { useDashboards } from "@/hooks/use-dashboards";
 import { useViewMode } from "@/components/view-mode-provider";
 
 export interface TopbarProps { title?: string; subtitle?: string; dashboardId?: number; }
+
+interface ServerAccount { id: string; name: string; odooOrigin: string; isActive: boolean; }
+
+// Mirrors the mobile app's server switcher, shown so a user can jump between
+// already-connected servers without going into Settings.
+function ServerSwitcher() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const pathname = usePathname();
+  const [accounts, setAccounts] = useState<ServerAccount[]>([]);
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function refresh() {
+    void fetch("/api/tenant/status", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((body) => setAccounts(body?.accounts ?? []));
+  }
+
+  // The topbar's layout stays mounted across client-side navigation, so a
+  // mount-only fetch would keep showing whatever was true the first time this
+  // tab loaded -- refetch on every route change too, so adding/renaming a
+  // server in Settings shows up here without a full page reload.
+  useEffect(refresh, [pathname]);
+
+  const active = accounts.find((a) => a.isActive);
+  if (accounts.length < 2) return null;
+
+  async function switchAccount(accountId: string) {
+    setSwitching(accountId);
+    setError(null);
+    const response = await fetch("/api/tenant/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId }) });
+    setSwitching(null);
+    if (!response.ok) {
+      setError("Couldn't switch servers. Try again.");
+      refresh();
+      return;
+    }
+    setOpen(false);
+    // A previous account's cache must never leak into the newly active one
+    // -- see hooks/use-dashboards.ts.
+    queryClient.clear();
+    window.localStorage.removeItem("odsaas-query-cache");
+    router.replace("/dashboards");
+    router.refresh();
+  }
+
+  return (
+    <div className="relative shrink-0">
+      <button type="button" className="flex h-9 max-w-40 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm font-medium hover:bg-muted" onClick={() => { refresh(); setOpen((v) => !v); }} aria-expanded={open} aria-haspopup="menu">
+        <Icon name="dataset" size={15} className="shrink-0 text-fg-muted" />
+        <span className="truncate">{active?.name ?? "Server"}</span>
+        <Icon name="chevron-down" size={14} className="shrink-0 text-fg-muted" />
+      </button>
+      {open && <>
+        <button type="button" className="fixed inset-0 cursor-default" aria-label="Close server menu" onClick={() => setOpen(false)} />
+        <div className="absolute right-0 top-11 z-40 w-64 rounded-lg border border-border bg-surface p-1 shadow-[var(--shadow-overlay)]" role="menu">
+          {error && <p className="px-3 py-1.5 text-xs text-danger">{error}</p>}
+          {accounts.map((account) => (
+            <button
+              key={account.id}
+              type="button"
+              disabled={account.isActive || switching === account.id}
+              onClick={() => switchAccount(account.id)}
+              className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-default"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{account.name}</span>
+                <span className="block truncate text-xs text-fg-subtle">{account.odooOrigin}</span>
+              </span>
+              {account.isActive && <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">Active</span>}
+            </button>
+          ))}
+          <Link href="/settings" onClick={() => setOpen(false)} className="mt-1 flex items-center gap-2 rounded-md border-t border-border px-3 py-2 text-sm font-medium text-primary-700 hover:bg-muted">
+            <Icon name="plus" size={14} /> Manage servers
+          </Link>
+        </div>
+      </>}
+    </div>
+  );
+}
 
 export function Topbar({ title, subtitle, dashboardId }: TopbarProps) {
   const router = useRouter();
@@ -78,6 +158,7 @@ export function Topbar({ title, subtitle, dashboardId }: TopbarProps) {
             <button type="button" onClick={() => setMode("gallery")} aria-pressed={mode === "gallery"} aria-label="Gallery view" className={`flex h-8 w-8 items-center justify-center rounded ${mode === "gallery" ? "bg-surface text-primary-700 shadow-sm" : "text-fg-muted hover:text-primary-700"}`}><Icon name="tile" size={16} /></button>
           </div>
         )}
+        <ServerSwitcher />
         <Link href="/alerts" className={`flex h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium ${isAlerts ? "bg-primary-50 text-primary-700" : "text-fg-muted hover:bg-muted hover:text-primary-700"}`}><Icon name="bell" size={17} /><span className="hidden md:inline">Alerts</span></Link>
         <Link href="/settings" className={`flex h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium ${isSettings ? "bg-primary-50 text-primary-700" : "text-fg-muted hover:bg-muted hover:text-primary-700"}`}><Icon name="settings" size={17} /><span className="hidden md:inline">Settings</span></Link>
         <Button variant="ghost" size="compact" onClick={onLogout}><Icon name="external-link" size={14} /><span className="hidden sm:inline">Disconnect</span></Button>

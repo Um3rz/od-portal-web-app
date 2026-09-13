@@ -25,9 +25,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const { odooUrl, apiKey } = await req.json().catch(() => ({}));
-  if (typeof odooUrl !== "string" || typeof apiKey !== "string" || !apiKey.trim()) {
-    return NextResponse.json({ error: "odooUrl and apiKey are required" }, { status: 400 });
+  const { odooUrl, apiKey, name } = await req.json().catch(() => ({}));
+  if (typeof odooUrl !== "string" || typeof apiKey !== "string" || !apiKey.trim() || typeof name !== "string" || !name.trim()) {
+    return NextResponse.json({ error: "odooUrl, apiKey and name are required" }, { status: 400 });
   }
 
   let origin: string;
@@ -109,12 +109,14 @@ export async function POST(req: Request) {
   if (existing) {
     // Same server + same key already connected -- refresh its metadata and
     // just re-activate it rather than adding a duplicate entry.
+    existing.name = name.trim();
     existing.contractVersion = pingBody.contract_version;
     existing.isExternalGrant = isExternalGrant;
     account = existing;
   } else {
     account = {
       id: crypto.randomUUID(),
+      name: name.trim(),
       odooOrigin: origin,
       apiKey,
       contractVersion: pingBody.contract_version,
