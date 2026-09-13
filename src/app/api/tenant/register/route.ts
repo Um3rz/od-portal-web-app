@@ -1,9 +1,12 @@
-// Onboarding: user pastes an Odoo origin + mobile API key (or external-grant
-// token). Validates both against the real Odoo instance before persisting
-// anything into the encrypted session. technical_plan.md §1/§3.
+// Onboarding AND "add another server": user pastes an Odoo origin +
+// external API key. Validates both against the real Odoo instance before
+// persisting anything into the encrypted session. technical_plan.md §1/§3.
+// This endpoint always ADDS an account (or re-activates a matching existing
+// one) -- it never replaces the accounts already in the session, so
+// connecting a new server doesn't drop the old connection.
 import { NextResponse } from "next/server";
 import { validateOdooOrigin, SsrfValidationError } from "@/lib/ssrf";
-import { getSession } from "@/lib/session";
+import { getSession, type OdooAccount } from "@/lib/session";
 import { hit, retryAfterSeconds } from "@/lib/rate-limit";
 
 const REGISTER_LIMIT = 10;
@@ -100,10 +103,27 @@ export async function POST(req: Request) {
   }
 
   const session = await getSession();
-  session.odooOrigin = origin;
-  session.apiKey = apiKey;
-  session.contractVersion = pingBody.contract_version;
-  session.isExternalGrant = isExternalGrant;
+  const accounts = session.accounts ?? [];
+  const existing = accounts.find((a) => a.odooOrigin === origin && a.apiKey === apiKey);
+  let account: OdooAccount;
+  if (existing) {
+    // Same server + same key already connected -- refresh its metadata and
+    // just re-activate it rather than adding a duplicate entry.
+    existing.contractVersion = pingBody.contract_version;
+    existing.isExternalGrant = isExternalGrant;
+    account = existing;
+  } else {
+    account = {
+      id: crypto.randomUUID(),
+      odooOrigin: origin,
+      apiKey,
+      contractVersion: pingBody.contract_version,
+      isExternalGrant,
+    };
+    accounts.push(account);
+  }
+  session.accounts = accounts;
+  session.activeAccountId = account.id;
   await session.save();
 
   return NextResponse.json({ ok: true, contractVersion: pingBody.contract_version });

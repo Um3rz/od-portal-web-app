@@ -63,12 +63,12 @@ export function OnboardingForm() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="apiKey" className="text-xs font-medium text-fg-muted">
-              API key
+              External API key
             </label>
             <Input
               id="apiKey"
               type="password"
-              placeholder="Paste your mobile API key"
+              placeholder="Paste your external API key"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               required

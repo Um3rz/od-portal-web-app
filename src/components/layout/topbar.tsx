@@ -30,11 +30,15 @@ export function Topbar({ title, subtitle, dashboardId }: TopbarProps) {
   const showPicker = !(isDashboardsHome && mode === "carousel");
 
   async function onLogout() {
-    if (!window.confirm("Disconnecting will sign you out of this app on all your devices. Continue?")) return;
+    if (!window.confirm("Disconnect this server? You'll stay signed in to any other connected servers.")) return;
     await fetch("/api/tenant/logout", { method: "POST" });
+    // A previous account's cache must never leak into whichever account is
+    // active afterward -- see hooks/use-dashboards.ts. The layout server
+    // component decides where "afterward" is: /dashboards if another
+    // account is still active, "/" (onboarding) if none are left.
     queryClient.clear();
     window.localStorage.removeItem("odsaas-query-cache");
-    router.replace("/");
+    router.replace("/dashboards");
     router.refresh();
   }
 

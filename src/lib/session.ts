@@ -1,14 +1,26 @@
 // Encrypted server-side session (iron-session, AES-256-GCM sealed cookie).
-// Holds the tenant's Odoo origin and API key -- technical_plan.md §1/§3:
-// never sent to the browser, never logged, never in React Query cache.
+// Holds every Odoo server/account the user has connected, plus which one is
+// active -- technical_plan.md §1/§3: never sent to the browser as plaintext,
+// never logged, never in React Query cache. The browser only ever sees a
+// masked last-4-chars summary of an api key (see /api/tenant/status).
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 
-export interface OdooSessionData {
-  odooOrigin?: string;
-  apiKey?: string;
+export interface OdooAccount {
+  id: string;
+  odooOrigin: string;
+  apiKey: string;
   isExternalGrant?: boolean;
   contractVersion?: string;
+}
+
+export interface OdooSessionData {
+  accounts?: OdooAccount[];
+  activeAccountId?: string;
+}
+
+export function getActiveAccount(session: OdooSessionData): OdooAccount | undefined {
+  return session.accounts?.find((account) => account.id === session.activeAccountId);
 }
 
 const password = process.env.SESSION_SECRET;

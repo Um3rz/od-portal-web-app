@@ -4,6 +4,7 @@
 // set, same conditional threshold/window visibility) -- restyled with this
 // app's own primitives instead of React Native's.
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/icon/icon";
@@ -73,8 +74,22 @@ export function AlertDialog({ dashboardId, analyticId, widgetName, onClose }: { 
   }
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-[var(--modal-backdrop,rgba(0,0,0,0.32))] p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-lg bg-surface p-5 shadow-[var(--shadow-modal)]" onClick={(e) => e.stopPropagation()}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-[var(--modal-backdrop,rgba(0,0,0,0.32))] p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full max-w-sm rounded-lg bg-surface p-5 shadow-[var(--shadow-modal)]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-base font-heading font-bold">Alert me when…</h2>
         <p className="mb-4 truncate text-xs text-fg-muted">{widgetName}</p>
 
@@ -115,7 +130,7 @@ export function AlertDialog({ dashboardId, analyticId, widgetName, onClose }: { 
           <Button variant="ghost" size="compact" onClick={onClose}>Cancel</Button>
           <Button size="compact" disabled={create.isPending} onClick={submit}>{create.isPending ? "Saving…" : "Create alert"}</Button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -3,7 +3,7 @@
 // exactly as callOdoo() returns them (technical_plan.md §1).
 import { NextResponse } from "next/server";
 import { callOdoo, OdooUnauthenticatedError } from "@/lib/odoo-client";
-import { getSession } from "@/lib/session";
+import { getSession, getActiveAccount } from "@/lib/session";
 import { hit, retryAfterSeconds } from "@/lib/rate-limit";
 
 const SESSION_LIMIT = 120;
@@ -31,7 +31,8 @@ async function handle(req: Request, path: string[]) {
   }
 
   const session = await getSession();
-  const bucketKey = session.apiKey ? `key:${session.apiKey.slice(0, 8)}` : "anon";
+  const account = getActiveAccount(session);
+  const bucketKey = account ? `key:${account.apiKey.slice(0, 8)}` : "anon";
   if (!hit(`bff:${bucketKey}`, SESSION_LIMIT, SESSION_WINDOW_SECONDS)) {
     return NextResponse.json(
       { error: "rate_limited" },

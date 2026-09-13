@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { Icon } from "@/components/icon/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WidgetSkeleton, type SkeletonVariant } from "@/components/dashboard/widget-skeleton";
@@ -81,23 +82,28 @@ export function DashboardCarousel() {
             onClick={() => setIndex(i)}
             aria-current={i === index}
             className={cn(
-              "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
-              i === index ? "bg-primary-500 text-white" : "text-fg-muted hover:bg-muted",
+              "relative shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap",
+              i === index ? "text-white" : "text-fg-muted hover:bg-muted",
             )}
           >
-            {d.name}
+            {i === index && <motion.span layoutId="carousel-picker-active" className="absolute inset-0 rounded-full bg-primary-500" transition={{ duration: 0.3, ease: "easeOut" }} />}
+            <span className="relative">{d.name}</span>
           </button>
         ))}
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="flex h-full transition-transform duration-300 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
+        <motion.div
+          className="flex h-full"
+          animate={{ x: `${-index * 100}%` }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
           {ordered.map((d) => (
             <div key={d.id} className="h-full w-full shrink-0 [&>div]:pb-20">
               <DashboardView dashboardId={d.id} />
             </div>
           ))}
-        </div>
+        </motion.div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
           <div className="pointer-events-auto flex items-center gap-4 rounded-full border border-border bg-surface px-3 py-2 shadow-[var(--shadow-overlay)]">

@@ -4,7 +4,7 @@
 // belongs to Odoo, never follow a redirect.
 import "server-only";
 import { validateOdooOrigin } from "./ssrf";
-import { getSession } from "./session";
+import { getSession, getActiveAccount } from "./session";
 
 export class OdooUnauthenticatedError extends Error {}
 
@@ -24,16 +24,17 @@ export async function callOdoo(
   init: { method?: string; body?: unknown } = {},
 ): Promise<OdooResponse> {
   const session = await getSession();
-  if (!session.odooOrigin || !session.apiKey) {
+  const account = getActiveAccount(session);
+  if (!account) {
     throw new OdooUnauthenticatedError("No active Odoo session.");
   }
 
-  const origin = await validateOdooOrigin(session.odooOrigin);
+  const origin = await validateOdooOrigin(account.odooOrigin);
 
   const res = await fetch(`${origin}${path}`, {
     method: init.method ?? "GET",
     headers: {
-      Authorization: `Bearer ${session.apiKey}`,
+      Authorization: `Bearer ${account.apiKey}`,
       ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,

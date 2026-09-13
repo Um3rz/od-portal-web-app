@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { api, type AppliedGlobalFilter, type DashboardFilterState, type FilterOption, type GlobalFilterDescriptor, type RangeFilter } from "@/lib/api";
 import { sameFilters } from "@/lib/filters";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,27 @@ function dateForPreset(preset: (typeof PRESETS)[number]): RangeFilter | null {
   return { fromDate: format(from), toDate: format(to) };
 }
 
+// Shared open/close animation for every collapsible field card (date range,
+// multiselect, the panel toggle itself) -- height+opacity, short enough
+// (160ms) that opening a filter never reads as the app being slow.
+function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.16, ease: "easeOut" }}
+          style={{ overflow: "hidden" }}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function toggleOption(filters: AppliedGlobalFilter[], descriptor: GlobalFilterDescriptor, option: FilterOption) {
   const exists = filters.some((f) => f.conditions_line_id === descriptor.conditions_line_id && f.filter_values.backend === option.backend);
   return exists
@@ -37,17 +59,19 @@ function DateRangeFilter({ descriptor, value, onChange }: { descriptor: GlobalFi
       <span>{descriptor.description || "Date range"} {value && <span className="text-xs text-primary-700">({value.fromDate} – {value.toDate})</span>}</span>
       <Icon name={open ? "chevron-up" : "chevron-down"} size={15} />
     </button>
-    {open && <div className="mt-3">
-      <div className="mb-3 flex flex-wrap gap-1">{PRESETS.map((preset) => <button key={preset} type="button" onClick={() => onChange(dateForPreset(preset))} className="rounded border border-border px-2 py-1 text-xs hover:bg-primary-50">{preset}</button>)}</div>
-      {/* Stacked, not side-by-side: this card can render inside the narrow
-          per-widget filter popover (~20rem), and a native date input needs
-          real width for its placeholder + picker icon -- squeezed to ~half
-          that, Chrome renders it garbled. */}
-      <div className="grid grid-cols-1 gap-2">
-        <Input type="date" aria-label="From date" value={value?.fromDate ?? ""} onChange={(e) => onChange(e.target.value ? { fromDate: e.target.value, toDate: value?.toDate ?? e.target.value } : null)} />
-        <Input type="date" aria-label="To date" value={value?.toDate ?? ""} onChange={(e) => onChange(e.target.value ? { fromDate: value?.fromDate ?? e.target.value, toDate: e.target.value } : null)} />
+    <Collapse open={open}>
+      <div className="mt-3">
+        <div className="mb-3 flex flex-wrap gap-1">{PRESETS.map((preset) => <button key={preset} type="button" onClick={() => onChange(dateForPreset(preset))} className="rounded border border-border px-2 py-1 text-xs hover:bg-primary-50">{preset}</button>)}</div>
+        {/* Stacked, not side-by-side: this card can render inside the narrow
+            per-widget filter popover (~20rem), and a native date input needs
+            real width for its placeholder + picker icon -- squeezed to ~half
+            that, Chrome renders it garbled. */}
+        <div className="grid grid-cols-1 gap-2">
+          <Input type="date" aria-label="From date" value={value?.fromDate ?? ""} onChange={(e) => onChange(e.target.value ? { fromDate: e.target.value, toDate: value?.toDate ?? e.target.value } : null)} />
+          <Input type="date" aria-label="To date" value={value?.toDate ?? ""} onChange={(e) => onChange(e.target.value ? { fromDate: value?.fromDate ?? e.target.value, toDate: e.target.value } : null)} />
+        </div>
       </div>
-    </div>}
+    </Collapse>
   </div>;
 }
 
@@ -84,16 +108,18 @@ function MultiSelectFilter({ dashboardId, descriptor, value, onChange }: { dashb
       <span>{descriptor.description || descriptor.column_name} {selected.length > 0 && <span className="text-xs text-primary-700">({selected.length})</span>}</span>
       <Icon name={open ? "chevron-up" : "chevron-down"} size={15} />
     </button>
-    {open && <div className="mt-3 space-y-2">
-      <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search values" aria-label={`Search ${descriptor.description}`} />
-      {loading && <div className="flex items-center gap-2 text-xs text-fg-muted"><Spinner size={14} />Loading values…</div>}
-      {timeout && <p className="text-xs text-warning">The value search timed out. Try a narrower search.</p>}
-      <div className="max-h-44 space-y-1 overflow-y-auto">
-        {visible.map((option) => { const checked = selected.some((f) => f.filter_values.backend === option.backend); return <label key={`${option.backend}`} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"><input type="checkbox" checked={checked} onChange={() => onChange(toggleOption(value, descriptor, option))} />{option.frontend}</label>; })}
-        {!loading && visible.length === 0 && <p className="px-2 py-1 text-xs text-fg-subtle">No values found.</p>}
+    <Collapse open={open}>
+      <div className="mt-3 space-y-2">
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search values" aria-label={`Search ${descriptor.description}`} />
+        {loading && <div className="flex items-center gap-2 text-xs text-fg-muted"><Spinner size={14} />Loading values…</div>}
+        {timeout && <p className="text-xs text-warning">The value search timed out. Try a narrower search.</p>}
+        <div className="max-h-44 space-y-1 overflow-y-auto">
+          {visible.map((option) => { const checked = selected.some((f) => f.filter_values.backend === option.backend); return <label key={`${option.backend}`} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"><input type="checkbox" checked={checked} onChange={() => onChange(toggleOption(value, descriptor, option))} />{option.frontend}</label>; })}
+          {!loading && visible.length === 0 && <p className="px-2 py-1 text-xs text-fg-subtle">No values found.</p>}
+        </div>
+        {truncated && <p className="text-xs text-fg-subtle">Showing the first 100 values. Search to find more.</p>}
       </div>
-      {truncated && <p className="text-xs text-fg-subtle">Showing the first 100 values. Search to find more.</p>}
-    </div>}
+    </Collapse>
   </div>;
 }
 
@@ -139,10 +165,12 @@ export function FilterToolbar({ dashboardId, descriptors, applied, onApply, hide
       {changed && <div className="ml-auto flex gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => { onApply(draft); setOpen(false); }}>Apply filters</Button></div>}
     </div>}
     {hideToggle && changed && <div className="mb-2 flex justify-end gap-2"><Button size="compact" variant="ghost" onClick={() => setDraft(applied)}>Reset</Button><Button size="compact" onClick={() => onApply(draft)}>Apply</Button></div>}
-    {open && <div className={hideToggle ? "grid gap-3 md:grid-cols-2" : "mt-3 grid gap-3 border-t border-border pt-3 md:grid-cols-2 lg:grid-cols-3"}>
-      {date && <DateRangeFilter descriptor={date} value={draft.rangeFilter} onChange={(rangeFilter) => setDraft((current) => ({ ...current, rangeFilter }))} />}
-      {numerical.map((descriptor) => <div key={descriptor.conditions_line_id} className="rounded-md border border-border bg-surface p-3"><label className="mb-2 block text-sm font-medium" htmlFor={`number-${descriptor.conditions_line_id}`}>{descriptor.description || descriptor.column_name}</label><Input id={`number-${descriptor.conditions_line_id}`} type="number" value={numberValue(descriptor.conditions_line_id)} onChange={(e) => setNumber(descriptor, e.target.value)} placeholder={descriptor.field_type} /></div>)}
-      {multi.map((descriptor) => <MultiSelectFilter key={descriptor.conditions_line_id} dashboardId={dashboardId} descriptor={descriptor} value={draft.globalFilters} onChange={(globalFilters) => setDraft((current) => ({ ...current, globalFilters }))} />)}
-    </div>}
+    <Collapse open={open}>
+      <div className={hideToggle ? "grid gap-3 md:grid-cols-2" : "mt-3 grid gap-3 border-t border-border pt-3 md:grid-cols-2 lg:grid-cols-3"}>
+        {date && <DateRangeFilter descriptor={date} value={draft.rangeFilter} onChange={(rangeFilter) => setDraft((current) => ({ ...current, rangeFilter }))} />}
+        {numerical.map((descriptor) => <div key={descriptor.conditions_line_id} className="rounded-md border border-border bg-surface p-3"><label className="mb-2 block text-sm font-medium" htmlFor={`number-${descriptor.conditions_line_id}`}>{descriptor.description || descriptor.column_name}</label><Input id={`number-${descriptor.conditions_line_id}`} type="number" value={numberValue(descriptor.conditions_line_id)} onChange={(e) => setNumber(descriptor, e.target.value)} placeholder={descriptor.field_type} /></div>)}
+        {multi.map((descriptor) => <MultiSelectFilter key={descriptor.conditions_line_id} dashboardId={dashboardId} descriptor={descriptor} value={draft.globalFilters} onChange={(globalFilters) => setDraft((current) => ({ ...current, globalFilters }))} />)}
+      </div>
+    </Collapse>
   </section>;
 }

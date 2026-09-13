@@ -8,22 +8,48 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Icon } from "@/components/icon/icon";
+import { cn } from "@/lib/utils";
+
+interface Account {
+  id: string;
+  odooOrigin: string;
+  apiKeyLast4: string;
+  isActive: boolean;
+}
+
+interface Status {
+  odooOrigin: string;
+  apiKeyLast4: string;
+  accounts: Account[];
+}
 
 export default function SettingsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [server, setServer] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [odooUrl, setOdooUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
+  const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    void fetch("/api/tenant/status").then((response) => response.ok ? response.json() : null).then((body) => setServer(body?.odooOrigin ?? null));
-  }, []);
+  function refreshStatus() {
+    void fetch("/api/tenant/status").then((response) => (response.ok ? response.json() : null)).then(setStatus);
+  }
 
-  async function switchServer(event: React.FormEvent) {
+  useEffect(refreshStatus, []);
+
+  // A previous account's cache must never leak into whichever account
+  // becomes active -- see hooks/use-dashboards.ts.
+  function switchToDashboards() {
+    queryClient.clear();
+    window.localStorage.removeItem("odsaas-query-cache");
+    router.replace("/dashboards");
+    router.refresh();
+  }
+
+  async function addServer(event: React.FormEvent) {
     event.preventDefault();
     setState("loading");
     setError(null);
@@ -34,23 +60,80 @@ export default function SettingsPage() {
       setError(body.error ?? "Could not connect to this server.");
       return;
     }
-    queryClient.clear();
-    window.localStorage.removeItem("odsaas-query-cache");
-    router.replace("/dashboards");
-    router.refresh();
+    switchToDashboards();
+  }
+
+  async function switchAccount(accountId: string) {
+    setSwitching(accountId);
+    const response = await fetch("/api/tenant/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId }) });
+    setSwitching(null);
+    if (response.ok) switchToDashboards();
   }
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Connection</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Account</p>
           <Card className="p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-500"><Icon name="server" size={18} /></span><div className="min-w-0"><p className="text-sm font-semibold">Current Odoo server</p><p className="mt-1 truncate text-sm text-fg-muted">{server ?? "Loading…"}</p></div></div>
-              <Button variant="outline" size="compact" onClick={() => setShowForm((value) => !value)}><Icon name="plus" size={15} /> Add server</Button>
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-500"><Icon name="lock" size={18} /></span>
+              <div className="min-w-0">
+                <p className="text-xs text-fg-subtle">External API key</p>
+                <p className="text-sm font-semibold">•••• {status?.apiKeyLast4 ?? "…"}</p>
+                <p className="mt-3 text-xs text-fg-subtle">Server</p>
+                <p className="truncate text-sm font-semibold">{status?.odooOrigin ?? "Loading…"}</p>
+              </div>
             </div>
-            {showForm && <form onSubmit={switchServer} className="mt-5 flex flex-col gap-3 border-t border-border pt-5"><p className="text-xs text-fg-muted">Connect another server to make it the active workspace. Your API key is encrypted in the server session and is not saved in this browser.</p><Input aria-label="Odoo server URL" placeholder="https://yourcompany.odoo.com" value={odooUrl} onChange={(event) => setOdooUrl(event.target.value)} required /><Input aria-label="Odoo API key" type="password" placeholder="Mobile API key" value={apiKey} onChange={(event) => setApiKey(event.target.value)} required />{state === "error" && <p className="text-xs text-danger">{error}</p>}<div className="flex justify-end gap-2"><Button type="button" variant="ghost" size="compact" onClick={() => setShowForm(false)}>Cancel</Button><Button type="submit" size="compact" disabled={state === "loading"}>{state === "loading" ? <Spinner size={15} className="text-white" /> : "Connect server"}</Button></div></form>}
+          </Card>
+        </section>
+
+        <section>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Servers</p>
+          <Card className="divide-y divide-border">
+            {status?.accounts.map((account) => (
+              <button
+                key={account.id}
+                type="button"
+                disabled={account.isActive || switching === account.id}
+                onClick={() => switchAccount(account.id)}
+                className={cn("flex w-full items-center justify-between gap-4 p-5 text-left", account.isActive ? "cursor-default" : "hover:bg-muted")}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{account.odooOrigin}</p>
+                  <p className="text-xs text-fg-muted">•••• {account.apiKeyLast4}</p>
+                </div>
+                {/* Fixed-width column, content right-aligned within it --
+                    without this, the pill/text/icon across these rows (and
+                    the "+" row below) each size to their own content and
+                    don't share a common right edge. */}
+                <span className="flex w-16 shrink-0 items-center justify-end">
+                  {account.isActive ? (
+                    <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700">Active</span>
+                  ) : switching === account.id ? (
+                    <Spinner size={16} />
+                  ) : (
+                    <span className="text-xs font-medium text-primary-700">Switch</span>
+                  )}
+                </span>
+              </button>
+            ))}
+            <button type="button" className="flex w-full items-center justify-between p-5 text-left hover:bg-muted" onClick={() => setShowForm((value) => !value)}>
+              <span className="text-sm font-semibold">Add another server</span>
+              <span className="flex w-16 shrink-0 items-center justify-end"><Icon name="plus" size={17} className="text-fg-subtle" /></span>
+            </button>
+            {showForm && (
+              <form onSubmit={addServer} className="flex flex-col gap-3 p-5">
+                <p className="text-xs text-fg-muted">Switching keeps you signed in to every server you&apos;ve connected. Your API key is encrypted in the server session and is not saved in this browser.</p>
+                <Input aria-label="Odoo server URL" placeholder="https://yourcompany.odoo.com" value={odooUrl} onChange={(event) => setOdooUrl(event.target.value)} required />
+                <Input aria-label="External API key" type="password" placeholder="External API key" value={apiKey} onChange={(event) => setApiKey(event.target.value)} required />
+                {state === "error" && <p className="text-xs text-danger">{error}</p>}
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" size="compact" onClick={() => setShowForm(false)}>Cancel</Button>
+                  <Button type="submit" size="compact" disabled={state === "loading"}>{state === "loading" ? <Spinner size={15} className="text-white" /> : "Connect server"}</Button>
+                </div>
+              </form>
+            )}
           </Card>
         </section>
 

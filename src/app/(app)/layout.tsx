@@ -1,17 +1,18 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { getSession, getActiveAccount } from "@/lib/session";
 import { Topbar } from "@/components/layout/topbar";
 import { SessionProvider } from "@/components/session-provider";
 import { ViewModeProvider } from "@/components/view-mode-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  if (!session.odooOrigin || !session.apiKey) {
+  const account = getActiveAccount(session);
+  if (!account) {
     redirect("/");
   }
 
   return (
-    <SessionProvider isExternalGrant={!!session.isExternalGrant}>
+    <SessionProvider isExternalGrant={!!account.isExternalGrant}>
       <ViewModeProvider>
         <div className="flex h-dvh w-full flex-col overflow-hidden">
           <Topbar />

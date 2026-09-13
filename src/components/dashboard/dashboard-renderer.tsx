@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
+import { AnimatePresence, motion } from "framer-motion";
 import { Icon, vizIcon } from "@/components/icon/icon";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -244,12 +245,20 @@ function WidgetCard({ dashboardId, manifest, item, cardLoading, onRetry, isExter
         {!isExternalGrant && <Button variant="ghost" size="compact" onClick={onAlert} aria-label="Create alert for this widget"><Icon name="alert-triangle" size={15} /></Button>}
         {descriptors.length > 0 && <div className="relative"><Button variant={filterOpen ? "outline" : "ghost"} size="compact" onClick={onToggleFilterOpen} aria-label="Open widget filters"><Icon name="filter" size={15} />{((filters.rangeFilter ? 1 : 0) + filters.globalFilters.length) > 0 && <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary-500 px-0.5 text-[9px] font-bold text-white">{(filters.rangeFilter ? 1 : 0) + filters.globalFilters.length}</span>}</Button></div>}
       </div>
-      {filterOpen && (
-        <div className="absolute right-4 top-14 z-20 w-[min(20rem,calc(100%-2rem))] rounded-lg border border-border bg-surface p-3 shadow-[var(--shadow-overlay)]">
-          <div className="mb-2 flex items-center justify-between border-b border-border pb-2"><span className="text-sm font-semibold">Filters</span><button type="button" onClick={onToggleFilterOpen} aria-label="Close widget filters" className="rounded p-1 text-fg-muted hover:bg-muted"><Icon name="close" size={14} /></button></div>
-          <FilterToolbar key={filterHash(filters)} dashboardId={dashboardId} descriptors={descriptors} applied={filters} onApply={onFilterChange} hideToggle />
-        </div>
-      )}
+      <AnimatePresence>
+        {filterOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="absolute right-4 top-14 z-20 w-[min(20rem,calc(100%-2rem))] origin-top-right rounded-lg border border-border bg-surface p-3 shadow-[var(--shadow-overlay)]"
+          >
+            <div className="mb-2 flex items-center justify-between border-b border-border pb-2"><span className="text-sm font-semibold">Filters</span><button type="button" onClick={onToggleFilterOpen} aria-label="Close widget filters" className="rounded p-1 text-fg-muted hover:bg-muted"><Icon name="close" size={14} /></button></div>
+            <FilterToolbar key={filterHash(filters)} dashboardId={dashboardId} descriptors={descriptors} applied={filters} onApply={onFilterChange} hideToggle />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {item.error ? (
         <div className="flex items-center gap-3 p-4 text-sm text-danger"><span>{text(item.error)}</span>{onRetry && <Button variant="outline" size="compact" onClick={onRetry}>Retry</Button>}</div>
       ) : (
@@ -339,6 +348,8 @@ export function DashboardRenderer({ dashboardId, items, payload, loading, onRetr
       />
     );
   })}</div>
-  {alertFor && <AlertDialog dashboardId={dashboardId} analyticId={alertFor.id} widgetName={alertFor.name} onClose={() => setAlertFor(null)} />}
+  <AnimatePresence>
+    {alertFor && <AlertDialog dashboardId={dashboardId} analyticId={alertFor.id} widgetName={alertFor.name} onClose={() => setAlertFor(null)} />}
+  </AnimatePresence>
   </>;
 }
