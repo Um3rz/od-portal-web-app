@@ -8,6 +8,7 @@ import { WidgetSkeleton, type SkeletonVariant } from "@/components/dashboard/wid
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { useDashboards } from "@/hooks/use-dashboards";
 import { useFavourites } from "@/hooks/use-favourites";
+import { captureEvent } from "@/lib/posthog-client";
 import { cn } from "@/lib/utils";
 
 // Shaped like the real carousel chrome (picker strip + widget grid + floating
@@ -41,8 +42,12 @@ function CarouselSkeleton() {
 // web (mouse/keyboard) surface.
 export function DashboardCarousel() {
   const { data: dashboards, isLoading } = useDashboards();
-  const { ids: favouriteIds } = useFavourites();
-  const [rawIndex, setIndex] = useState(0);
+  const { ids: favouriteIds, isFavourite, toggle: toggleFavourite } = useFavourites();
+  // Tracked by dashboard id, not a raw slide position -- starring the
+  // currently-viewed dashboard reorders `ordered` (favourites float to the
+  // front) on the very next render, and a position-based index would jump to
+  // whatever dashboard now sits at that slot instead of staying put.
+  const [activeId, setActiveId] = useState<number | null>(null);
 
   const ordered = useMemo(() => {
     const list = dashboards ?? [];
@@ -51,9 +56,9 @@ export function DashboardCarousel() {
     return [...favs, ...rest];
   }, [dashboards, favouriteIds]);
 
-  // Clamp instead of syncing via effect -- ordered.length can shrink (a
-  // favourite gets unstarred, a dashboard disappears) between renders.
-  const index = Math.min(rawIndex, Math.max(ordered.length - 1, 0));
+  // Falls back to the first slide if nothing's been picked yet, or the
+  // active dashboard disappeared (unshared, etc).
+  const index = Math.max(ordered.findIndex((d) => d.id === activeId), 0);
 
   if (isLoading) {
     return <CarouselSkeleton />;
@@ -70,25 +75,40 @@ export function DashboardCarousel() {
     );
   }
 
-  const go = (next: number) => setIndex((next + ordered.length) % ordered.length);
+  const go = (next: number) => setActiveId(ordered[(next + ordered.length) % ordered.length].id);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-surface px-4 py-2">
         {ordered.map((d, i) => (
-          <button
+          <div
             key={d.id}
-            type="button"
-            onClick={() => setIndex(i)}
-            aria-current={i === index}
             className={cn(
-              "relative shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap",
+              "relative flex shrink-0 items-center whitespace-nowrap rounded-full pl-3 pr-1.5 text-xs font-medium",
               i === index ? "text-white" : "text-fg-muted hover:bg-muted",
             )}
           >
             {i === index && <motion.span layoutId="carousel-picker-active" className="absolute inset-0 rounded-full bg-primary-500" transition={{ duration: 0.3, ease: "easeOut" }} />}
-            <span className="relative">{d.name}</span>
-          </button>
+            <button type="button" onClick={() => setActiveId(d.id)} aria-current={i === index} className="relative py-1.5">
+              {d.name}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                captureEvent("dashboard_favourite_toggled", { dashboard_id: d.id, favourited: !isFavourite(d.id) });
+                toggleFavourite(d.id);
+              }}
+              aria-label={isFavourite(d.id) ? `Remove ${d.name} from favourites` : `Add ${d.name} to favourites`}
+              aria-pressed={isFavourite(d.id)}
+              className={cn(
+                "relative ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                isFavourite(d.id) ? "[&_svg]:fill-current" : "opacity-60 hover:opacity-100",
+              )}
+            >
+              <Icon name="circle" size={12} />
+            </button>
+          </div>
         ))}
       </div>
 
@@ -121,7 +141,7 @@ export function DashboardCarousel() {
                 <button
                   key={d.id}
                   type="button"
-                  onClick={() => setIndex(i)}
+                  onClick={() => setActiveId(d.id)}
                   aria-label={`Go to ${d.name}`}
                   aria-current={i === index}
                   className={cn("h-2 rounded-full transition-all", i === index ? "w-6 bg-primary-500" : "w-2 bg-border hover:bg-fg-subtle")}

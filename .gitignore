@@ -42,3 +42,9 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# markdown docs: keep README/CLAUDE/AGENTS tracked, ignore ad-hoc plan/notes files
+*.md
+!README.md
+!CLAUDE.md
+!AGENTS.md

@@ -19,12 +19,13 @@ interface ServerAccount { id: string; name: string; odooOrigin: string; isActive
 // already-connected servers without going into Settings.
 function ServerSwitcher() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const pathname = usePathname();
   const [accounts, setAccounts] = useState<ServerAccount[]>([]);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   function refresh() {
     void fetch("/api/tenant/status", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((body) => setAccounts(body?.accounts ?? []));
@@ -50,12 +51,26 @@ function ServerSwitcher() {
       return;
     }
     setOpen(false);
-    // A previous account's cache must never leak into the newly active one
-    // -- see hooks/use-dashboards.ts.
-    queryClient.clear();
-    window.localStorage.removeItem("odsaas-query-cache");
+    // The pathname-change effect above won't refire here -- switching while
+    // already on /dashboards (the common case, since that's where switching
+    // sends you) keeps the pathname identical, so nothing re-triggers the
+    // account fetch and the topbar label is left showing the old server
+    // until something else happens to reopen this dropdown. Refresh
+    // explicitly instead of relying on that effect.
+    refresh();
+    // Query keys are account-scoped (hooks/use-dashboards.ts), so the
+    // previous account's cache can just stay put -- if it was fetched this
+    // session, switching back to it later shows that cached data instantly
+    // instead of a full reload.
     router.replace("/dashboards");
     router.refresh();
+  }
+
+  async function saveRename(accountId: string) {
+    const name = renameDraft.trim();
+    if (!name) { setRenaming(null); return; }
+    const response = await fetch("/api/tenant/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId, name }) });
+    if (response.ok) { setRenaming(null); refresh(); }
   }
 
   return (
@@ -69,20 +84,42 @@ function ServerSwitcher() {
         <button type="button" className="fixed inset-0 cursor-default" aria-label="Close server menu" onClick={() => setOpen(false)} />
         <div className="absolute right-0 top-11 z-40 w-64 rounded-lg border border-border bg-surface p-1 shadow-[var(--shadow-overlay)]" role="menu">
           {error && <p className="px-3 py-1.5 text-xs text-danger">{error}</p>}
-          {accounts.map((account) => (
-            <button
-              key={account.id}
-              type="button"
-              disabled={account.isActive || switching === account.id}
-              onClick={() => switchAccount(account.id)}
-              className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-default"
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{account.name}</span>
-                <span className="block truncate text-xs text-fg-subtle">{account.odooOrigin}</span>
-              </span>
-              {account.isActive && <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">Active</span>}
-            </button>
+          {accounts.map((account) => renaming === account.id ? (
+            <div key={account.id} className="flex items-center gap-1.5 px-2 py-1.5">
+              <input
+                autoFocus
+                aria-label="Server name"
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveRename(account.id); if (e.key === "Escape") setRenaming(null); }}
+                className="h-8 min-w-0 flex-1 rounded border border-[hsl(220_13%_88%)] px-2 text-sm"
+              />
+              <button type="button" onClick={() => saveRename(account.id)} aria-label="Save name" className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-primary-700 hover:bg-primary-50"><Icon name="check" size={15} /></button>
+              <button type="button" onClick={() => setRenaming(null)} aria-label="Cancel rename" className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-muted"><Icon name="close" size={14} /></button>
+            </div>
+          ) : (
+            <div key={account.id} className="flex w-full items-center gap-1 rounded-md hover:bg-muted">
+              <button
+                type="button"
+                disabled={account.isActive || switching === account.id}
+                onClick={() => switchAccount(account.id)}
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm disabled:cursor-default"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{account.name}</span>
+                  <span className="block truncate text-xs text-fg-subtle">{account.odooOrigin}</span>
+                </span>
+                {account.isActive && <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">Active</span>}
+              </button>
+              <button
+                type="button"
+                aria-label={`Rename ${account.name}`}
+                onClick={() => { setRenaming(account.id); setRenameDraft(account.name); }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-white hover:text-primary-700"
+              >
+                <Icon name="edit" size={13} />
+              </button>
+            </div>
           ))}
           <Link href="/settings" onClick={() => setOpen(false)} className="mt-1 flex items-center gap-2 rounded-md border-t border-border px-3 py-2 text-sm font-medium text-primary-700 hover:bg-muted">
             <Icon name="plus" size={14} /> Manage servers

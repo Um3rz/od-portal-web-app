@@ -37,6 +37,9 @@ export default function SettingsPage() {
   const [switching, setSwitching] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
 
   function refreshStatus() {
     void fetch("/api/tenant/status", { cache: "no-store" }).then((response) => (response.ok ? response.json() : null)).then(setStatus);
@@ -71,7 +74,19 @@ export default function SettingsPage() {
     setSwitching(accountId);
     const response = await fetch("/api/tenant/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId }) });
     setSwitching(null);
-    if (response.ok) switchToDashboards();
+    // Query keys are account-scoped (hooks/use-dashboards.ts) -- unlike
+    // switchToDashboards() (used after logout/remove), a plain switch keeps
+    // the cache so a previously-visited account shows its data instantly.
+    if (response.ok) { router.replace("/dashboards"); router.refresh(); }
+  }
+
+  async function saveRename(accountId: string) {
+    const name = renameDraft.trim();
+    if (!name) { setRenaming(null); return; }
+    setRenameSaving(true);
+    const response = await fetch("/api/tenant/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId, name }) });
+    setRenameSaving(false);
+    if (response.ok) { setRenaming(null); refreshStatus(); }
   }
 
   async function removeAccount(account: Account) {
@@ -112,7 +127,20 @@ export default function SettingsPage() {
         <section>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Servers</p>
           <Card className="divide-y divide-border">
-            {status?.accounts.map((account) => (
+            {status?.accounts.map((account) => renaming === account.id ? (
+              <div key={account.id} className="flex w-full items-center gap-2 p-5">
+                <Input
+                  autoFocus
+                  aria-label="Server name"
+                  value={renameDraft}
+                  onChange={(event) => setRenameDraft(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === "Enter") saveRename(account.id); if (event.key === "Escape") setRenaming(null); }}
+                  className="h-9 flex-1"
+                />
+                <Button type="button" size="compact" onClick={() => saveRename(account.id)} disabled={renameSaving}>{renameSaving ? <Spinner size={14} className="text-white" /> : "Save"}</Button>
+                <Button type="button" variant="ghost" size="compact" onClick={() => setRenaming(null)} disabled={renameSaving}>Cancel</Button>
+              </div>
+            ) : (
               <div key={account.id} className="flex w-full items-center gap-1 pr-3">
                 <button
                   type="button"
@@ -137,6 +165,14 @@ export default function SettingsPage() {
                       <span className="text-xs font-medium text-primary-700">Switch</span>
                     )}
                   </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Rename ${account.name}`}
+                  onClick={() => { setRenaming(account.id); setRenameDraft(account.name); }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-muted hover:text-primary-700"
+                >
+                  <Icon name="edit" size={15} />
                 </button>
                 <button
                   type="button"

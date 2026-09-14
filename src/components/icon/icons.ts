@@ -85,4 +85,6 @@ export const ICONS: Record<string, string> = {
   "hashtag": "<path d='M9.5 3 7.5 21M17 3l-2 18M4.2 8.5h16M3.4 15.5h16'></path>",
   "percent": "<circle cx='7' cy='7' r='2.3'></circle><circle cx='17' cy='17' r='2.3'></circle><path d='M18 6 6 18'></path>",
   "tag": "<path d='M12.4 3.4H6a2 2 0 0 0-2 2v6.4a2 2 0 0 0 .6 1.4l8.2 8.2a2 2 0 0 0 2.8 0l6.2-6.2a2 2 0 0 0 0-2.8l-8.2-8.2a2 2 0 0 0-1.2-.6Z'></path><circle cx='8' cy='8' r='1.3' fill='currentColor' stroke='none'></circle>",
+  "pin": "<path d='M12 21v-7'></path><path d='M7 4.5h10l-1 6.5 3 3H5l3-3-1-6.5Z'></path>",
+  "circle": "<circle cx='12' cy='12' r='8.5'></circle>",
 };

@@ -107,7 +107,7 @@ export function DashboardGallery() {
                   data-active={isFavourite(d.id)}
                   aria-label={isFavourite(d.id) ? "Remove from favourites" : "Add to favourites"}
                 >
-                  <Icon name="star" size={18} />
+                  <Icon name="circle" size={18} />
                 </button>
               </div>
               <div>
